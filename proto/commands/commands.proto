@@ -1,0 +1,15 @@
+syntax = "proto3";
+package commands;
+option go_package="../commands";
+
+import "google/protobuf/timestamp.proto";
+
+// Generic request message
+message CommandRequest {
+    string command = 1;
+}
+
+// Variety of responses based on the command
+message CurrentTimeResponse {
+    google.protobuf.Timestamp currTime = 1;
+}
