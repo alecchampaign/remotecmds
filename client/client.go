@@ -11,7 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-func makeCurrTimeRequest(req *api.CommandRequest) (*api.CurrentTimeResponse, error) {
+func makeCurrTimeRequest(req *api.CommandRequest) (*api.CommandResponse, error) {
 	request, err := proto.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -26,7 +26,7 @@ func makeCurrTimeRequest(req *api.CommandRequest) (*api.CurrentTimeResponse, err
 		return nil, err
 	}
 
-	respObj := &api.CurrentTimeResponse{}
+	respObj := &api.CommandResponse{}
 	err = proto.Unmarshal(respBytes, respObj)
 	if err != nil {
 		return nil, err
@@ -37,11 +37,14 @@ func makeCurrTimeRequest(req *api.CommandRequest) (*api.CurrentTimeResponse, err
 
 func main() {
 	req := &api.CommandRequest{
-		Command: "get time test",
+		Commands: []string{
+			"get time test",
+			"say something",
+		},
 	}
 	res, err := makeCurrTimeRequest(req)
 	if err != nil {
 		log.Fatalf("error making current time request : %d", err)
 	}
-	fmt.Println(res.CurrTime)
+	fmt.Println(res)
 }

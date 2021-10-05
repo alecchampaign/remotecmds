@@ -12,38 +12,47 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func ParseRequest(res http.ResponseWriter, req *http.Request) (string, error) {
+func ParseRequest(res http.ResponseWriter, req *http.Request) ([]string, error) {
 	request := &api.CommandRequest{}
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		return "", fmt.Errorf("unable to read message from request : %v", err)
+		return nil, fmt.Errorf("unable to read message from request : %v", err)
 	}
 	if err = proto.Unmarshal(data, request); err != nil {
-		return "", fmt.Errorf("error while unmarshaling request : %d", err)
+		return nil, fmt.Errorf("error while unmarshaling request : %d", err)
 	}
-	return request.GetCommand(), nil
+	return request.GetCommands(), nil
 }
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Request received")
-		command, err := ParseRequest(w, r)
+		commands, err := ParseRequest(w, r)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		switch command {
-		case "get time test":
-			result := &api.CurrentTimeResponse{
-				CurrTime: timestamppb.New(time.Now()),
+		result := &api.CommandResponse{}
+		var response []byte
+		for _, command := range commands {
+			// For concurrency, maybe create a channel here and lanch this as a goroutine?
+			switch command {
+			case "get time test":
+				result.CurrTime = timestamppb.New(time.Now())
+			case "say something":
+				result.Speak = "Hello world!"
+			default:
+				w.WriteHeader(http.StatusNotFound)
+				result.Error = "Invalid command"
 			}
-			response, err := proto.Marshal(result)
-			if err != nil {
-				log.Fatalf("error while marshaling response : %d", err)
-			}
-			w.Write(response)
-			// TODO: write case in event of error?
 		}
+
+		response, err = proto.Marshal(result)
+		if err != nil {
+			log.Fatalf("error while marshaling response : %d", err)
+		}
+
+		w.Write(response)
 	})
 
 	fmt.Println("Listening on port 3000")

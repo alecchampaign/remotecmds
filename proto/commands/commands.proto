@@ -6,10 +6,12 @@ import "google/protobuf/timestamp.proto";
 
 // Generic request message
 message CommandRequest {
-    string command = 1;
+    repeated string commands = 1;
 }
 
 // Variety of responses based on the command
-message CurrentTimeResponse {
-    google.protobuf.Timestamp currTime = 1;
+message CommandResponse {
+    google.protobuf.Timestamp currTime = 3;
+    string speak = 4;
+    string error = 5;
 }
