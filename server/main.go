@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	api "github.com/alecchampaign/remotecmds/proto/commands"
@@ -24,7 +25,28 @@ func ParseRequest(res http.ResponseWriter, req *http.Request) ([]string, error) 
 	return request.GetCommands(), nil
 }
 
+type jobs struct {
+	mu     sync.Mutex
+	status map[string]bool
+	result *api.CommandResponse
+}
+
+func (j *jobs) Complete(key string) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	j.status[key] = true
+}
+
+func newJobs() *jobs {
+	var j jobs
+	j.status = make(map[string]bool)
+	j.result = new(api.CommandResponse)
+	return &j
+}
+
 func main() {
+	jobs := newJobs()
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Request received")
 		commands, err := ParseRequest(w, r)
@@ -32,22 +54,36 @@ func main() {
 			log.Fatal(err)
 		}
 
-		result := &api.CommandResponse{}
 		var response []byte
+		var wg sync.WaitGroup
+
 		for _, command := range commands {
-			// For concurrency, maybe create a channel here and lanch this as a goroutine?
+			wg.Add(1)
 			switch command {
 			case "get time test":
-				result.CurrTime = timestamppb.New(time.Now())
+				go func() {
+					defer func() {
+						jobs.status[command] = true
+						wg.Done()
+					}()
+					jobs.result.CurrTime = timestamppb.New(time.Now())
+				}()
 			case "say something":
-				result.Speak = "Hello world!"
+				go func() {
+					defer func() {
+						jobs.status[command] = true
+						wg.Done()
+					}()
+					jobs.result.Speak = "Hello world!"
+				}()
 			default:
 				w.WriteHeader(http.StatusNotFound)
-				result.Error = "Invalid command"
+				jobs.result.Error = "Invalid command"
 			}
 		}
 
-		response, err = proto.Marshal(result)
+		wg.Wait()
+		response, err = proto.Marshal(jobs.result)
 		if err != nil {
 			log.Fatalf("error while marshaling response : %d", err)
 		}
