@@ -13,8 +13,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func ParseRequest(res http.ResponseWriter, req *http.Request) ([]string, error) {
-	request := &api.CommandRequest{}
+func ParseCommandRequest(res http.ResponseWriter, req *http.Request) ([]string, error) {
+	request := new(api.CommandRequest)
 	data, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read message from request : %v", err)
@@ -23,6 +23,18 @@ func ParseRequest(res http.ResponseWriter, req *http.Request) ([]string, error) 
 		return nil, fmt.Errorf("error while unmarshaling request : %d", err)
 	}
 	return request.GetCommands(), nil
+}
+
+func ParseStatusRequst(w http.ResponseWriter, r *http.Request) (string, error) {
+	request := new(api.StatusRequest)
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return "", fmt.Errorf("uable to read message from request : %v", err)
+	}
+	if err = proto.Unmarshal(data, request); err != nil {
+		return "", fmt.Errorf("error while unmarshaling request: %d", err)
+	}
+	return request.GetCommand(), nil
 }
 
 type jobs struct {
@@ -45,11 +57,12 @@ func newJobs() *jobs {
 }
 
 func main() {
+	handler := http.NewServeMux()
 	jobs := newJobs()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	handler.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Request received")
-		commands, err := ParseRequest(w, r)
+		commands, err := ParseCommandRequest(w, r)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -91,6 +104,24 @@ func main() {
 		w.Write(response)
 	})
 
+	handler.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Status request received")
+		command, err := ParseStatusRequst(w, r)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		result := &api.StatusResponse{
+			Finished: jobs.status[command],
+		}
+		response, err := proto.Marshal(result)
+		if err != nil {
+			log.Fatalf("error while marshaling response : %d", err)
+		}
+
+		w.Write(response)
+	})
+
 	fmt.Println("Listening on port 3000")
-	log.Fatal(http.ListenAndServe("0.0.0.0:3000", nil))
+	log.Fatal(http.ListenAndServe("0.0.0.0:3000", handler))
 }

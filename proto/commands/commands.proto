@@ -9,9 +9,17 @@ message CommandRequest {
     repeated string commands = 1;
 }
 
+message StatusRequest {
+    string command = 1;
+}
+
 // Variety of responses based on the command
 message CommandResponse {
-    google.protobuf.Timestamp currTime = 3;
-    string speak = 4;
-    string error = 5;
+    google.protobuf.Timestamp currTime = 1;
+    string speak = 2;
+    string error = 3;
+}
+
+message StatusResponse {
+    bool finished = 1;
 }
